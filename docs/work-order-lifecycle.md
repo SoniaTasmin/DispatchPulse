@@ -1,6 +1,6 @@
 # Work-order lifecycle
 
-Status: implemented (M1) · Owner: Work Order API · Code: `apps/api/src/work-orders/`
+Status: implemented · Owner: Work Order API · Code: `apps/api/src/work-orders/`
 
 ## Problem
 
@@ -51,7 +51,7 @@ assign command.
 **409 vs 422:** 409 means the request conflicts with current state and could succeed later (the
 technician may become available). 422 means it can never succeed as sent (wrong skill or city).
 
-Outbox event envelope (`outbox_events.payload`, published to RabbitMQ in M2):
+Outbox event envelope (`outbox_events.payload`, published to RabbitMQ by the outbox relay):
 `{ eventId, eventType, schemaVersion: 1, occurredAt, workOrderId, data }`, where `data` is
 `{title, city, requiredSkill}` for created, `{technicianId, technicianName}` for assigned and
 `{technicianId}` for started and completed.

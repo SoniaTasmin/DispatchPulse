@@ -7,3 +7,9 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: false
+    jsonData:
+      # Matches the Prometheus scrape interval, so $__rate_interval in the rate panels covers at
+      # least one extra scrape. The per-minute bar panels use increase(...[65s]) at a 1-minute
+      # step for the same reason: windows overlap by one scrape, so no increment is lost at a
+      # minute boundary and none is counted twice.
+      timeInterval: 5s

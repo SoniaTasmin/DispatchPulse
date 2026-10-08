@@ -15,6 +15,14 @@ import { CreateWorkOrderDto, ListWorkOrdersQuery } from './work-order.dto';
 
 const { ASSIGNED, IN_PROGRESS, COMPLETED } = WorkOrderStatus;
 
+// For readable 409 messages: what moving into each status means to a dispatcher.
+const ACTION_BY_TARGET_STATUS: Record<WorkOrderStatus, string> = {
+  OPEN: 'reopened',
+  ASSIGNED: 'assigned',
+  IN_PROGRESS: 'started',
+  COMPLETED: 'completed',
+};
+
 const withTechnician = {
   technician: { select: { id: true, name: true } },
 } satisfies Prisma.WorkOrderInclude;
@@ -111,7 +119,7 @@ export class WorkOrdersService {
       workOrder,
     );
     if (!eligible) {
-      throw ineligibleTechnician(technicianId, reasons);
+      throw ineligibleTechnician(technician.name, reasons);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -126,7 +134,7 @@ export class WorkOrdersService {
       });
       if (claimed.count === 0) {
         throw new ConflictException(
-          `Technician ${technicianId} was assigned to another work order at the same time`,
+          `${technician.name} was assigned to another work order at the same time`,
         );
       }
       await this.moveStatus(tx, workOrder, ASSIGNED, {
@@ -181,7 +189,7 @@ export class WorkOrdersService {
   private assertCanTransition(workOrder: WorkOrder, to: WorkOrderStatus) {
     if (!canTransition(workOrder.status, to)) {
       throw new ConflictException(
-        `Cannot move work order ${workOrder.id} from ${workOrder.status} to ${to}`,
+        `Work order ${workOrder.id} is ${workOrder.status} and cannot be ${ACTION_BY_TARGET_STATUS[to]}`,
       );
     }
   }
@@ -209,11 +217,11 @@ export class WorkOrdersService {
 // Busy or off duty can change later, so that conflicts with current state (409).
 // A missing skill or a different city can never succeed (422).
 function ineligibleTechnician(
-  technicianId: number,
+  technicianName: string,
   reasons: IneligibilityReason[],
 ) {
   const body = {
-    message: `Technician ${technicianId} is not eligible for this work order`,
+    message: `${technicianName} is not eligible for this work order`,
     reasons,
   };
   return reasons.every((reason) => reason === 'NOT_AVAILABLE')

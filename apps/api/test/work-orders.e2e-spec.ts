@@ -169,7 +169,7 @@ describe('Work orders API (integration, real MySQL)', () => {
       .expect(409);
 
     expect((response.body as ErrorBody).message).toBe(
-      `Cannot move work order ${id} from OPEN to COMPLETED`,
+      `Work order ${id} is OPEN and cannot be completed`,
     );
     const workOrder = await prisma.workOrder.findUniqueOrThrow({
       where: { id },

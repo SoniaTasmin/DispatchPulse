@@ -5,7 +5,8 @@
 # Prerequisites, from the repo root:
 #   docker compose up -d --build
 #   SIMULATE_FAILURE_EVENT_TYPES=workorder.completed docker compose up -d notification-worker
-# Optional, for a predictable start (drops old demo messages from the dead-letter queue):
+# For a predictable result (dead-letter queue depth 0 before, 1 after), start from a clean
+# state with `scripts/reset-demo.sh --yes`, or just empty the DLQ (local demo data only):
 #   docker compose exec rabbitmq rabbitmqctl purge_queue notification-worker.dlq
 # Then:
 #   scripts/failure-demo.sh

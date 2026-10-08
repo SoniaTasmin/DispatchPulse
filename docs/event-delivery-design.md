@@ -1,6 +1,6 @@
 # Event delivery
 
-Status: implemented (M2) · Producer: Work Order API (`apps/api/src/outbox/`) ·
+Status: implemented · Producer: Work Order API (`apps/api/src/outbox/`) ·
 Consumer: Notification Worker (`apps/notification-worker/`)
 
 ## Problem

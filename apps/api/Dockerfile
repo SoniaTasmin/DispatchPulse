@@ -26,7 +26,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 3000
-# Migrations run on start-up. Safe here because there is exactly one API replica; with
-# several replicas they would race, so migrations would move to a separate one-off step.
+# Migrations run on start-up, then the demo seed (which skips itself once technicians
+# exist). Safe here because there is exactly one API replica; with several replicas they
+# would race, so migrations would move to a separate one-off step before the rollout.
 # `exec` makes node PID 1, so it receives SIGTERM directly and shuts down gracefully.
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && exec node dist/main"]
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/seed.js && exec node dist/main"]

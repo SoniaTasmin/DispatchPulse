@@ -9,7 +9,7 @@ export type WorkOrderEventType =
 
 /**
  * Records an integration event using the caller's transaction, so the event exists
- * if and only if the state change commits. A relay publishes these rows (M2).
+ * if and only if the state change commits. OutboxRelay publishes these rows.
  */
 export async function addOutboxEvent(
   tx: Prisma.TransactionClient,

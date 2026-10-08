@@ -1,5 +1,5 @@
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
-import { PrismaClient, TechnicianStatus } from '../src/generated/prisma/client';
+import { PrismaClient, TechnicianStatus } from './generated/prisma/client';
 
 const { AVAILABLE, OFF_DUTY } = TechnicianStatus;
 
