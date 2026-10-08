@@ -3,12 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { ChannelModel, ConfirmChannel, connect } from 'amqplib';
 import { Env } from '../config/env';
 import { OutboxEvent } from '../generated/prisma/client';
+import {
+  outboxPendingEvents,
+  outboxPublishFailuresTotal,
+  type PublishFailureReason,
+} from '../metrics/metrics';
 import { PrismaService } from '../prisma/prisma.service';
 
 // The API owns this exchange; each consumer declares and binds its own queues.
 export const WORK_ORDER_EVENTS_EXCHANGE = 'workorder.events';
 const POLL_INTERVAL_MS = 1000;
 const BATCH_SIZE = 50;
+
+class UnroutableEventError extends Error {}
 
 /**
  * Publishes committed outbox rows to RabbitMQ. A row is marked published only after the
@@ -56,20 +63,27 @@ export class OutboxRelay implements OnModuleDestroy {
   }
 
   private async publishBatch(): Promise<number> {
-    const pending = await this.prisma.outboxEvent.findMany({
+    // Counted every poll, so the backlog stays visible even while RabbitMQ is down.
+    const pendingCount = await this.prisma.outboxEvent.count({
       where: { publishedAt: null },
-      orderBy: { createdAt: 'asc' },
-      take: BATCH_SIZE,
     });
-    if (pending.length === 0) return 0;
+    outboxPendingEvents.set(pendingCount);
+    if (pendingCount === 0) return 0;
 
     let channel: ConfirmChannel;
     try {
       channel = await this.getChannel();
     } catch (error) {
-      this.reportBrokerUnavailable(error, pending.length);
+      outboxPublishFailuresTotal.inc({ reason: 'broker_unavailable' });
+      this.reportBrokerUnavailable(error, pendingCount);
       return 0;
     }
+
+    const pending = await this.prisma.outboxEvent.findMany({
+      where: { publishedAt: null },
+      orderBy: { createdAt: 'asc' },
+      take: BATCH_SIZE,
+    });
 
     let published = 0;
     for (const event of pending) {
@@ -84,6 +98,7 @@ export class OutboxRelay implements OnModuleDestroy {
         where: { id: event.id },
         data: { publishedAt: new Date() },
       });
+      outboxPendingEvents.dec();
       published++;
     }
     this.logger.log(`Published ${published} outbox event(s)`);
@@ -115,11 +130,16 @@ export class OutboxRelay implements OnModuleDestroy {
     // With mandatory=true, RabbitMQ returns a message that no queue is bound for (before
     // confirming it). Without this check the event would be confirmed and silently dropped.
     if (this.returnedMessageIds.delete(event.id)) {
-      throw new Error(`No queue is bound for routing key ${event.eventType}`);
+      throw new UnroutableEventError(
+        `No queue is bound for routing key ${event.eventType}`,
+      );
     }
   }
 
   private async recordFailure(event: OutboxEvent, error: unknown) {
+    const reason: PublishFailureReason =
+      error instanceof UnroutableEventError ? 'unroutable' : 'not_confirmed';
+    outboxPublishFailuresTotal.inc({ reason });
     const message = error instanceof Error ? error.message : String(error);
     this.logger.warn(
       `Publishing event ${event.id} (${event.eventType}) failed: ${message}`,

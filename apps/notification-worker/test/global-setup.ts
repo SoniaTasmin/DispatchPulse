@@ -12,6 +12,7 @@ export default async function globalSetup(): Promise<void> {
   process.env.RETRY_DELAY_MS = '200';
   process.env.MAX_ATTEMPTS = '3';
   process.env.SIMULATE_FAILURE_EVENT_TYPES = 'workorder.completed';
+  process.env.HTTP_PORT = '39101'; // not the dev worker's 3001
   await ensureVirtualHost(process.env.RABBITMQ_URL);
   execSync('npx prisma migrate deploy', { stdio: 'inherit' });
 }

@@ -40,6 +40,82 @@ services:
       retries: 10
       start_period: 20s
 
+  # The two application containers wait only for MySQL, because they run migrations on start.
+  # They do not wait for RabbitMQ: the outbox relay and the worker reconnect on their own,
+  # which they must do anyway when RabbitMQ restarts later.
+  api:
+    build: ./apps/api
+    environment:
+      NO_COLOR: "1" # plain container logs (Nest colours output by default)
+      PORT: 3000
+      DATABASE_URL: mysql://dispatchpulse_api:${API_DB_PASSWORD}@mysql:3306/dispatchpulse?allowPublicKeyRetrieval=true
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
+    ports:
+      - "3000:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  notification-worker:
+    build: ./apps/notification-worker
+    environment:
+      NO_COLOR: "1"
+      HTTP_PORT: 3001
+      WORKER_DATABASE_URL: mysql://dispatchpulse_worker:${WORKER_DB_PASSWORD}@mysql:3306/dispatchpulse_notifications?allowPublicKeyRetrieval=true
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
+      RETRY_DELAY_MS: ${RETRY_DELAY_MS:-5000}
+      MAX_ATTEMPTS: ${MAX_ATTEMPTS:-3}
+      # Demo only. Enable with: SIMULATE_FAILURE_EVENT_TYPES=workorder.completed docker compose up -d notification-worker
+      SIMULATE_FAILURE_EVENT_TYPES: ${SIMULATE_FAILURE_EVENT_TYPES:-}
+    ports:
+      - "3001:3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    volumes:
+      - ./infra/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.4.12
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set in .env}
+      # Local demo convenience: the dashboard is viewable without logging in (read-only).
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/dispatchpulse.json
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3030:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   mysql-data:
   rabbitmq-data:
+  prometheus-data:
+  grafana-data:

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './env';
 import { EventConsumer } from './event-consumer';
 import { NotificationsService } from './notifications.service';
+import { OpsServer } from './ops-server';
 import { PrismaService } from './prisma.service';
 
 @Module({
@@ -13,6 +14,6 @@ import { PrismaService } from './prisma.service';
       validate: validateEnv,
     }),
   ],
-  providers: [PrismaService, NotificationsService, EventConsumer],
+  providers: [PrismaService, NotificationsService, EventConsumer, OpsServer],
 })
 export class WorkerModule {}

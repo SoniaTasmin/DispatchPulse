@@ -1,0 +1,16 @@
+groups:
+  - name: dispatchpulse
+    rules:
+      # The one alert. Any event reaching the dead-letter queue needs a person to look at it,
+      # including simulated ones, so this does not filter on reason.
+      # Trade-off: it resolves 10 minutes after the last dead-letter even if the message is
+      # still sitting in the DLQ. Alerting on DLQ depth would need RabbitMQ's queue metrics.
+      - alert: EventsDeadLettered
+        expr: sum(increase(notification_events_dead_lettered_total[10m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Work-order events were sent to the dead-letter queue
+          description: >-
+            {{ $value | humanize }} event(s) dead-lettered in the last 10 minutes. Find the
+            eventId in the worker logs, fix the cause, then replay from notification-worker.dlq.

@@ -8,7 +8,18 @@ import { ConfigService } from '@nestjs/config';
 import { ChannelModel, ConfirmChannel, ConsumeMessage, connect } from 'amqplib';
 import { Env } from './env';
 import { parseEventEnvelope, WorkOrderEventType } from './event-envelope';
-import { decideOnFailure } from './failure-policy';
+import {
+  decideOnFailure,
+  failureReason,
+  SimulatedFailureError,
+} from './failure-policy';
+import {
+  eventRetriesTotal,
+  eventsDeadLetteredTotal,
+  eventsHandledTotal,
+  eventTypeLabel,
+  type EventTypeLabel,
+} from './metrics';
 import { NotificationsService } from './notifications.service';
 import { assertTopology, EVENTS_QUEUE, RETRY_QUEUE } from './topology';
 
@@ -40,6 +51,11 @@ export class EventConsumer implements OnApplicationBootstrap, OnModuleDestroy {
     this.simulatedFailures = config.get('SIMULATE_FAILURE_EVENT_TYPES', {
       infer: true,
     });
+  }
+
+  /** True while a channel is open and consuming; used by the health check. */
+  get isConsuming(): boolean {
+    return this.channel !== undefined;
   }
 
   async onApplicationBootstrap() {
@@ -125,18 +141,30 @@ export class EventConsumer implements OnApplicationBootstrap, OnModuleDestroy {
       type?: string;
     };
     const context = `event ${messageId} (${type ?? message.fields.routingKey}) attempt ${attempt}/${this.maxAttempts}`;
+    const eventType = eventTypeLabel(type);
     try {
       const event = parseEventEnvelope(message.content);
       this.failIfSimulated(event.eventType);
       const outcome = await this.notifications.record(event);
       channel.ack(message);
+      eventsHandledTotal.inc({
+        event_type: eventType,
+        outcome: outcome === 'created' ? 'processed' : 'duplicate',
+      });
       this.logger.log(
         outcome === 'created'
           ? `Processed ${context}: notification created`
           : `Processed ${context}: duplicate delivery, notification already exists`,
       );
     } catch (error) {
-      await this.handleFailure(channel, message, attempt, context, error);
+      await this.handleFailure(
+        channel,
+        message,
+        attempt,
+        context,
+        eventType,
+        error,
+      );
     }
   }
 
@@ -145,22 +173,26 @@ export class EventConsumer implements OnApplicationBootstrap, OnModuleDestroy {
     message: ConsumeMessage,
     attempt: number,
     context: string,
+    eventType: EventTypeLabel,
     error: unknown,
   ) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const detail = error instanceof Error ? error.message : String(error);
+    const labels = { event_type: eventType, reason: failureReason(error) };
     if (decideOnFailure(error, attempt, this.maxAttempts) === 'retry') {
       this.logger.warn(
-        `Failed ${context}: ${reason}. Retrying in ${this.retryDelayMs} ms`,
+        `Failed ${context}: ${detail}. Retrying in ${this.retryDelayMs} ms`,
       );
       // Publish the retry copy and wait for the broker's confirm before acking the original;
       // a crash in between causes a duplicate, which the idempotent insert absorbs.
       await this.publishForRetry(channel, message, attempt + 1);
       channel.ack(message);
+      eventRetriesTotal.inc(labels);
     } else {
       this.logger.error(
-        `Failed ${context}: ${reason}. Sent to dead-letter queue`,
+        `Failed ${context}: ${detail}. Sent to dead-letter queue`,
       );
       channel.nack(message, false, false);
+      eventsDeadLetteredTotal.inc(labels);
     }
   }
 
@@ -196,7 +228,7 @@ export class EventConsumer implements OnApplicationBootstrap, OnModuleDestroy {
 
   private failIfSimulated(eventType: WorkOrderEventType) {
     if (this.simulatedFailures.includes(eventType)) {
-      throw new Error(
+      throw new SimulatedFailureError(
         `Simulated failure for ${eventType} (SIMULATE_FAILURE_EVENT_TYPES)`,
       );
     }

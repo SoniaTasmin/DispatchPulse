@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { TechnicianStatus, WorkOrderStatus } from '../generated/prisma/enums';
+import { workOrderTransitionsTotal } from '../metrics/metrics';
 import { addOutboxEvent } from '../outbox/outbox';
 import { PrismaService } from '../prisma/prisma.service';
 import { checkEligibility, IneligibilityReason } from './eligibility';
@@ -35,7 +36,7 @@ export class WorkOrdersService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const workOrder = await tx.workOrder.create({
         data: { title, description, city, requiredSkillCode: requiredSkill },
         include: withTechnician,
@@ -47,6 +48,8 @@ export class WorkOrdersService {
       });
       return workOrder;
     });
+    workOrderTransitionsTotal.inc({ to_status: WorkOrderStatus.OPEN });
+    return created;
   }
 
   list({ status, limit }: ListWorkOrdersQuery) {
@@ -135,6 +138,7 @@ export class WorkOrdersService {
         technicianName: technician.name,
       });
     });
+    workOrderTransitionsTotal.inc({ to_status: ASSIGNED });
     return this.findOne(id);
   }
 
@@ -150,6 +154,7 @@ export class WorkOrdersService {
         technicianId: workOrder.technicianId,
       });
     });
+    workOrderTransitionsTotal.inc({ to_status: IN_PROGRESS });
     return this.findOne(id);
   }
 
@@ -169,6 +174,7 @@ export class WorkOrdersService {
       });
       await addOutboxEvent(tx, 'workorder.completed', id, { technicianId });
     });
+    workOrderTransitionsTotal.inc({ to_status: COMPLETED });
     return this.findOne(id);
   }
 

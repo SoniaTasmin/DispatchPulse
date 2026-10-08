@@ -1,5 +1,9 @@
 import { InvalidEventError } from './event-envelope';
-import { decideOnFailure } from './failure-policy';
+import {
+  decideOnFailure,
+  failureReason,
+  SimulatedFailureError,
+} from './failure-policy';
 
 describe('decideOnFailure', () => {
   const transient = new Error('database unavailable');
@@ -12,5 +16,16 @@ describe('decideOnFailure', () => {
     ['invalid message, first attempt', invalid, 1, 'dead-letter'],
   ] as const)('%s → %s', (_case, error, attempt, expected) => {
     expect(decideOnFailure(error, attempt, 3)).toBe(expected);
+  });
+});
+
+describe('failureReason', () => {
+  // The event-processing SLO excludes "simulated", so demo failures must be told apart.
+  it.each([
+    [new InvalidEventError('bad envelope'), 'invalid'],
+    [new SimulatedFailureError('demo'), 'simulated'],
+    [new Error('database unavailable'), 'error'],
+  ] as const)('%s → %s', (error, expected) => {
+    expect(failureReason(error)).toBe(expected);
   });
 });

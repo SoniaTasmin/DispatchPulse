@@ -30,6 +30,12 @@ export class Env {
   @Max(10)
   MAX_ATTEMPTS: number = 3;
 
+  /** Port for the worker's /metrics and /health endpoints. */
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  HTTP_PORT: number = 3001;
+
   /** Demo only: event types the worker fails on purpose to show the retry and DLQ path. */
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string'
