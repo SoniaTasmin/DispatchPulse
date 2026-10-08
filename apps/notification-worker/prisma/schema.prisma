@@ -1,0 +1,26 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// Owned by the worker. No foreign key to work_orders: that table lives in the API's database,
+// and everything the worker needs arrives in the event.
+model Notification {
+  id          Int      @id @default(autoincrement())
+  // One notification per event. A redelivered event hits this constraint instead of
+  // creating a duplicate, even when two deliveries are processed at the same moment.
+  eventId     String   @unique @map("event_id") @db.Char(36)
+  eventType   String   @map("event_type") @db.VarChar(64)
+  workOrderId Int      @map("work_order_id")
+  recipient   String   @db.VarChar(64)
+  message     String   @db.VarChar(500)
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@map("notifications")
+}

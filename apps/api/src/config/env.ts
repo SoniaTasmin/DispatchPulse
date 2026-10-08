@@ -13,6 +13,10 @@ export class Env {
   @IsUrl({ protocols: ['mysql'], require_tld: false, require_protocol: true })
   DATABASE_URL!: string;
 
+  @IsNotEmpty()
+  @IsUrl({ protocols: ['amqp'], require_tld: false, require_protocol: true })
+  RABBITMQ_URL!: string;
+
   @IsInt()
   @Min(1)
   @Max(65535)

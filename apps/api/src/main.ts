@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { Env } from './config/env';
+import { OutboxRelay } from './outbox/outbox-relay';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,5 +21,7 @@ async function bootstrap() {
 
   const config = app.get<ConfigService<Env, true>>(ConfigService);
   await app.listen(config.get('PORT', { infer: true }));
+  // Started here rather than in a lifecycle hook, so tests control when the relay runs.
+  app.get(OutboxRelay).start();
 }
 void bootstrap();

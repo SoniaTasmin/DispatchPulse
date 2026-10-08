@@ -1,15 +1,17 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
-// Runs once before the integration tests. Test workers inherit process.env, so the app
-// under test (and Prisma's config, which never overrides set variables) use the test
-// database and the test RabbitMQ virtual host.
+// Runs once before the integration tests. Test workers inherit process.env, and the worker's
+// config is read when its module is imported, so test settings must be set here.
 export default async function globalSetup(): Promise<void> {
   const rootEnvFile = '../../.env';
   if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 
-  process.env.DATABASE_URL = required('TEST_DATABASE_URL');
+  process.env.WORKER_DATABASE_URL = required('TEST_WORKER_DATABASE_URL');
   process.env.RABBITMQ_URL = required('TEST_RABBITMQ_URL');
+  process.env.RETRY_DELAY_MS = '200';
+  process.env.MAX_ATTEMPTS = '3';
+  process.env.SIMULATE_FAILURE_EVENT_TYPES = 'workorder.completed';
   await ensureVirtualHost(process.env.RABBITMQ_URL);
   execSync('npx prisma migrate deploy', { stdio: 'inherit' });
 }

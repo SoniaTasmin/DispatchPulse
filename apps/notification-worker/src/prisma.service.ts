@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
-import { Env } from '../config/env';
-import { PrismaClient } from '../generated/prisma/client';
+import { Env } from './env';
+import { PrismaClient } from './generated/prisma/client';
 
 @Injectable()
 export class PrismaService
@@ -15,7 +15,9 @@ export class PrismaService
 {
   constructor(config: ConfigService<Env, true>) {
     super({
-      adapter: new PrismaMariaDb(config.get('DATABASE_URL', { infer: true })),
+      adapter: new PrismaMariaDb(
+        config.get('WORKER_DATABASE_URL', { infer: true }),
+      ),
     });
   }
 
@@ -23,8 +25,7 @@ export class PrismaService
     await this.$connect();
   }
 
-  // Last shutdown phase, so components stopping in onModuleDestroy (the outbox relay)
-  // can still finish their database work.
+  // Last shutdown phase, so the consumer can finish in-flight messages first.
   async onApplicationShutdown() {
     await this.$disconnect();
   }
