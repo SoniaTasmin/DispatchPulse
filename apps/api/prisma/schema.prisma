@@ -1,0 +1,94 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  // Extensionless imports so both `nest build` and ts-node (seed) resolve the generated files.
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum TechnicianStatus {
+  AVAILABLE
+  BUSY
+  OFF_DUTY
+}
+
+enum WorkOrderStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Skill {
+  code        String            @id @db.VarChar(32)
+  name        String            @db.VarChar(100)
+  technicians TechnicianSkill[]
+  workOrders  WorkOrder[]
+
+  @@map("skills")
+}
+
+model Technician {
+  id         Int               @id @default(autoincrement())
+  name       String            @db.VarChar(100)
+  city       String            @db.VarChar(64)
+  status     TechnicianStatus  @default(AVAILABLE)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt  DateTime          @updatedAt @map("updated_at") @db.DateTime(3)
+  skills     TechnicianSkill[]
+  workOrders WorkOrder[]
+
+  @@map("technicians")
+}
+
+model TechnicianSkill {
+  technicianId Int        @map("technician_id")
+  skillCode    String     @map("skill_code") @db.VarChar(32)
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  skill        Skill      @relation(fields: [skillCode], references: [code])
+
+  @@id([technicianId, skillCode])
+  @@map("technician_skills")
+}
+
+model WorkOrder {
+  id                Int             @id @default(autoincrement())
+  title             String          @db.VarChar(200)
+  description       String?         @db.Text
+  city              String          @db.VarChar(64)
+  requiredSkillCode String          @map("required_skill_code") @db.VarChar(32)
+  requiredSkill     Skill           @relation(fields: [requiredSkillCode], references: [code])
+  status            WorkOrderStatus @default(OPEN)
+  // Explicit Restrict: MySQL rejects CHECK constraints on columns that have
+  // cascading or SET NULL foreign-key actions (Prisma's default for optional relations).
+  technicianId      Int?            @map("technician_id")
+  technician        Technician?     @relation(fields: [technicianId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.DateTime(3)
+  assignedAt        DateTime?       @map("assigned_at") @db.DateTime(3)
+  startedAt         DateTime?       @map("started_at") @db.DateTime(3)
+  completedAt       DateTime?       @map("completed_at") @db.DateTime(3)
+
+  // Serves "list by status, newest first".
+  @@index([status, createdAt])
+  @@map("work_orders")
+}
+
+model OutboxEvent {
+  id              String    @id @db.Char(36)
+  eventType       String    @map("event_type") @db.VarChar(64)
+  workOrderId     Int       @map("work_order_id")
+  payload         Json
+  createdAt       DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  publishedAt     DateTime? @map("published_at") @db.DateTime(3)
+  publishAttempts Int       @default(0) @map("publish_attempts")
+  lastError       String?   @map("last_error") @db.VarChar(500)
+
+  // Serves the relay's "unpublished, oldest first" poll.
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}
