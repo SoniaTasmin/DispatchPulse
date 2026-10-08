@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env';
 import { HealthController } from './health.controller';
 import { PrismaModule } from './prisma/prisma.module';
+import { TechniciansModule } from './technicians/technicians.module';
+import { WorkOrdersModule } from './work-orders/work-orders.module';
 
 @Module({
   imports: [
@@ -13,6 +15,8 @@ import { PrismaModule } from './prisma/prisma.module';
       validate: validateEnv,
     }),
     PrismaModule,
+    WorkOrdersModule,
+    TechniciansModule,
   ],
   controllers: [HealthController],
 })
