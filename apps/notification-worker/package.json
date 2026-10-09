@@ -54,7 +54,7 @@
     "typescript-eslint": "^8.20.0"
   },
   "overrides": {
-    "mariadb": "3.4.7",
+    "mariadb": "3.5.4",
     "mysql2": "3.24.4"
   },
   "allowScripts": {

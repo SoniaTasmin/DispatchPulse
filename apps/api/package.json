@@ -90,7 +90,7 @@
     "@scarf/scarf": false
   },
   "overrides": {
-    "mariadb": "3.4.7",
+    "mariadb": "3.5.4",
     "mysql2": "3.24.4",
     "@nestjs/swagger": {
       "js-yaml": "5.4.2"
