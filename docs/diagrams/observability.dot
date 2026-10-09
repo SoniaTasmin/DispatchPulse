@@ -1,0 +1,25 @@
+// Monitoring flow. Render from this directory (see README.md here):
+//   dot -Tsvg observability.dot -o ../images/observability.svg
+digraph observability {
+  // Straight horizontal edges use `label` (Graphviz reserves room and centres it above the
+  // line); vertical and bent edges use `xlabel`, which orthogonal routing supports.
+  graph [rankdir=LR, splines=ortho, outputorder=edgesfirst, bgcolor="#ffffff", pad="0.25",
+         ranksep="1.2", nodesep="0.5", forcelabels=true,
+         fontname="Helvetica,Arial,sans-serif"];
+  node  [shape=box, style=filled, fillcolor="#f6f8fa", color="#8c959f", penwidth=1,
+         fontname="Helvetica,Arial,sans-serif", fontsize=12, fontcolor="#1f2328",
+         width=1.8, height=0.5, margin="0.16,0.08"];
+  edge  [color="#57606a", penwidth=1.2, arrowsize=0.7, arrowhead=normal,
+         fontname="Helvetica,Arial,sans-serif", fontsize=10, fontcolor="#57606a"];
+
+  api        [label="Work Order API"];
+  worker     [label="Notification Worker"];
+  prometheus [label="Prometheus"];
+  grafana    [label="Grafana"];
+
+  { rank=same; api; worker; }
+
+  api        -> prometheus [xlabel="/metrics "];
+  worker     -> prometheus [xlabel="/metrics "];
+  prometheus -> grafana    [label="queries\n "];
+}

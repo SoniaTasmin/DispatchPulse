@@ -1,0 +1,33 @@
+// Worker retry and dead-letter flow. Render from this directory (see README.md here):
+//   dot -Tsvg event-delivery.dot -o ../images/event-delivery.svg
+digraph event_delivery {
+  // Straight horizontal edges use `label` (Graphviz reserves room and centres it above the
+  // line); vertical and bent edges use `xlabel`, which orthogonal routing supports.
+  graph [rankdir=LR, splines=ortho, outputorder=edgesfirst, bgcolor="#ffffff", pad="0.25",
+         ranksep="1.35", nodesep="0.4", forcelabels=true,
+         fontname="Helvetica,Arial,sans-serif"];
+  node  [shape=box, style=filled, fillcolor="#f6f8fa", color="#8c959f", penwidth=1,
+         fontname="Helvetica,Arial,sans-serif", fontsize=12, fontcolor="#1f2328",
+         width=1.6, height=0.55, margin="0.16,0.08"];
+  edge  [color="#57606a", penwidth=1.2, arrowsize=0.7, arrowhead=normal,
+         fontname="Helvetica,Arial,sans-serif", fontsize=10, fontcolor="#57606a"];
+
+  queue  [label="Worker queue"];
+  worker [label="Worker"];
+  ack    [label="Ack"];
+  retry  [label=<Retry queue<br/><font point-size="10" color="#57606a">5 s delay</font>>];
+  dlq    [label="Dead-letter queue", color="#b42318", fontcolor="#b42318", fillcolor="#fef3f2"];
+
+  // Column 2 stacks Ack, Worker and Retry queue, so success goes straight up, retry goes
+  // straight down, and the loop back to the queue stays a small rectangle on the left.
+  { rank=same; ack; worker; retry; }
+
+  queue  -> worker;
+  // Declared ack -> worker (drawn as worker -> ack) so Ack sits above Worker in the column.
+  ack    -> worker [xlabel="success   ", dir=back];
+  worker -> retry  [xlabel="retry   "];
+  // Tail label centred on the bottom return segment: labeldistance x 10 pt = half its length,
+  // and a small negative angle lifts the text just above the line.
+  retry  -> queue  [taillabel="after 5 s", labeldistance=7.8, labelangle=-9, constraint=false];
+  worker -> dlq    [label="final failure\n ", color="#b42318", fontcolor="#b42318"];
+}

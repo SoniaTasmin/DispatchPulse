@@ -137,3 +137,9 @@ export const {
   useStartWorkOrderMutation,
   useCompleteWorkOrderMutation,
 } = api;
+
+/** Display name for a skill code ("NETWORKING" → "Networking"); the code until skills load. */
+export function useSkillName(): (code: string) => string {
+  const { data: skills } = useListSkillsQuery();
+  return (code) => skills?.find((skill) => skill.code === code)?.name ?? code;
+}

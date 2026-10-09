@@ -1,7 +1,7 @@
 {
   "uid": "dispatchpulse",
   "title": "DispatchPulse",
-  "description": "API, outbox and event-worker health with the two SLOs.",
+  "description": "API health, work-order activity and event delivery, with the two SLOs.",
   "tags": [
     "dispatchpulse"
   ],
@@ -12,220 +12,53 @@
   "graphTooltip": 1,
   "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "panels": [
     {
       "type": "row",
-      "title": "API",
-      "id": 1,
+      "title": "API health",
       "collapsed": false,
+      "panels": [],
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
       },
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "Request rate by route",
-      "id": 2,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Requests per second, labelled by route template (never by concrete URL).",
-      "gridPos": {
-        "h": 8,
-        "w": 7,
-        "x": 0,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (route) (rate(http_requests_total{job=\"api\"}[$__rate_interval]))",
-          "legendFormat": "{{route}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "5xx error ratio",
-      "id": 3,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Share of requests that failed on the server side. 4xx are excluded: the API handled those requests correctly.",
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 7,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "min": 0,
-          "max": 1,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "(sum(rate(http_requests_total{job=\"api\",status=~\"5..\"}[$__rate_interval])) or vector(0)) / sum(rate(http_requests_total{job=\"api\"}[$__rate_interval]))",
-          "legendFormat": "5xx share of requests",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "p95 latency",
-      "id": 4,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "95th-percentile request duration, estimated from histogram buckets. Shown for visibility; not a formal SLO.",
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 13,
-        "y": 1
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\"}[5m])))",
-          "legendFormat": "p95",
-          "refId": "A"
-        }
-      ]
+      "id": 1
     },
     {
       "type": "stat",
-      "title": "API availability (99% SLO)",
-      "id": 5,
+      "title": "API availability \u00b7 99% SLO",
+      "description": "SLI = non-5xx requests / all requests over the selected time range. 4xx counts as served correctly. Green at or above the 99% demo target.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "SLI = non-5xx requests / all requests over the selected time range. Green at or above 99%.",
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 5,
-        "x": 19,
+        "x": 0,
         "y": 1
       },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
           "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#d6453d",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#3f9b6a",
                 "value": 0.99
               }
             ]
@@ -236,10 +69,11 @@
         "overrides": []
       },
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
+        "wideLayout": true,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -258,55 +92,304 @@
           "refId": "A",
           "instant": true
         }
-      ]
+      ],
+      "id": 2
     },
     {
-      "type": "row",
-      "title": "Work orders and outbox",
-      "id": 6,
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 9
-      },
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "Lifecycle transitions / min",
-      "id": 7,
+      "type": "stat",
+      "title": "p95 latency",
+      "description": "95th-percentile request duration over the last 5 minutes, estimated from histogram buckets. Shown for visibility; not a formal SLO.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Committed state changes by the status entered. OPEN = work order created.",
       "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 10
+        "h": 7,
+        "w": 5,
+        "x": 5,
+        "y": 1
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "s",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#1f4fd1"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8a94a3",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No traffic"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "wideLayout": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\"}[5m])))",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "id": 3
+    },
+    {
+      "type": "timeseries",
+      "title": "Request rate",
+      "description": "All API requests per second (scrapes and health checks excluded). Per-route detail is in the metric, labelled by route template.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 7,
+        "x": 10,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
           "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5b8def"
+          },
           "custom": {
-            "drawStyle": "bars",
+            "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 80,
+            "fillOpacity": 12,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
-              "mode": "normal",
+              "mode": "none",
               "group": "A"
             }
           }
         },
         "overrides": []
       },
-      "interval": "1m",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(http_requests_total{job=\"api\"}[$__rate_interval]))",
+          "legendFormat": "requests/s",
+          "refId": "A"
+        }
+      ],
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "5xx error ratio",
+      "description": "Share of requests that failed on the server side. 4xx are not errors here: the API handled those requests correctly.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 7,
+        "x": 17,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d6453d"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(rate(http_requests_total{job=\"api\",status=~\"5..\"}[$__rate_interval])) or vector(0)) / sum(rate(http_requests_total{job=\"api\"}[$__rate_interval]))",
+          "legendFormat": "5xx share",
+          "refId": "A"
+        }
+      ],
+      "id": 5
+    },
+    {
+      "type": "row",
+      "title": "Work orders and outbox",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Lifecycle transitions / min",
+      "description": "Committed state changes by the status entered. OPEN = work order created.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 0,
+        "y": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 85,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMax": 1
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "OPEN"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5b8def"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ASSIGNED"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8f6bd8"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "IN_PROGRESS"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d99a1e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "COMPLETED"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3f9b6a"
+                }
+              }
+            ]
+          }
+        ]
+      },
       "options": {
         "legend": {
           "displayMode": "list",
@@ -328,31 +411,36 @@
           "legendFormat": "{{to_status}}",
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1m",
+      "id": 7
     },
     {
       "type": "timeseries",
       "title": "Pending outbox events",
-      "id": 8,
+      "description": "Events committed in MySQL but not yet confirmed by RabbitMQ. Rises during a broker outage and drains when it recovers.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Events committed in MySQL but not yet confirmed by RabbitMQ. Rises during a broker outage and drains when it recovers.",
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 10
+        "w": 7,
+        "x": 10,
+        "y": 9
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5b8def"
+          },
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 15,
+            "fillOpacity": 12,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
@@ -367,7 +455,7 @@
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
           "mode": "multi",
@@ -384,47 +472,52 @@
           "legendFormat": "pending",
           "refId": "A"
         }
-      ]
+      ],
+      "id": 8
     },
     {
       "type": "timeseries",
       "title": "Outbox publish failures / min",
-      "id": 9,
+      "description": "Failed publish attempts (broker unavailable, unroutable or not confirmed). Each one leaves the event pending for the next poll.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Failed publish attempts by reason. Each failed attempt leaves the event pending for the next poll.",
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 10
+        "w": 7,
+        "x": 17,
+        "y": 9
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d99a1e"
+          },
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 2,
-            "fillOpacity": 80,
+            "fillOpacity": 85,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
               "mode": "normal",
               "group": "A"
-            }
-          }
+            },
+            "axisSoftMax": 1
+          },
+          "decimals": 0
         },
         "overrides": []
       },
-      "interval": "1m",
       "options": {
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
           "mode": "multi",
@@ -437,59 +530,95 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (reason) (increase(outbox_publish_failures_total[65s]))",
-          "legendFormat": "{{reason}}",
+          "expr": "sum(increase(outbox_publish_failures_total[65s]))",
+          "legendFormat": "failed attempts",
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1m",
+      "id": 9
     },
     {
       "type": "row",
       "title": "Event worker",
-      "id": 10,
       "collapsed": false,
+      "panels": [],
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 17
       },
-      "panels": []
+      "id": 10
     },
     {
       "type": "timeseries",
       "title": "Events handled / min",
-      "id": 11,
+      "description": "Final successful outcomes. 'duplicate' = a redelivered event that was already processed (absorbed by the UNIQUE event_id constraint).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Final successful outcomes. 'duplicate' = a redelivered event that was already processed (absorbed by the UNIQUE event_id constraint).",
       "gridPos": {
         "h": 8,
-        "w": 6,
+        "w": 8,
         "x": 0,
-        "y": 19
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 2,
-            "fillOpacity": 80,
+            "fillOpacity": 85,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
               "mode": "normal",
               "group": "A"
-            }
-          }
+            },
+            "axisSoftMax": 1
+          },
+          "decimals": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "processed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3f9b6a"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duplicate"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5b8def"
+                }
+              }
+            ]
+          }
+        ]
       },
-      "interval": "1m",
       "options": {
         "legend": {
           "displayMode": "list",
@@ -511,47 +640,53 @@
           "legendFormat": "{{outcome}}",
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1m",
+      "id": 11
     },
     {
       "type": "timeseries",
       "title": "Retries / min",
-      "id": 12,
+      "description": "Failed attempts scheduled for another try after a delay. Intermediate, not a final failure.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Failed attempts scheduled for another try. Intermediate, not a final failure.",
       "gridPos": {
         "h": 8,
-        "w": 4,
-        "x": 6,
-        "y": 19
+        "w": 6,
+        "x": 8,
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d99a1e"
+          },
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 2,
-            "fillOpacity": 80,
+            "fillOpacity": 85,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
               "mode": "normal",
               "group": "A"
-            }
-          }
+            },
+            "axisSoftMax": 1
+          },
+          "decimals": 0
         },
         "overrides": []
       },
-      "interval": "1m",
       "options": {
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
           "mode": "multi",
@@ -564,51 +699,57 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (reason) (increase(notification_event_retries_total[65s]))",
-          "legendFormat": "{{reason}}",
+          "expr": "sum(increase(notification_event_retries_total[65s]))",
+          "legendFormat": "retries",
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1m",
+      "id": 12
     },
     {
       "type": "timeseries",
       "title": "Dead-lettered / min",
-      "id": 13,
+      "description": "Events that used up their attempts or were invalid, now in the DLQ.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Events that exhausted their attempts or were invalid, by reason. 'simulated' comes from the demo switch.",
       "gridPos": {
         "h": 8,
-        "w": 4,
-        "x": 10,
-        "y": 19
+        "w": 5,
+        "x": 14,
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d6453d"
+          },
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 2,
-            "fillOpacity": 80,
+            "fillOpacity": 85,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
               "mode": "normal",
               "group": "A"
-            }
-          }
+            },
+            "axisSoftMax": 1
+          },
+          "decimals": 0
         },
         "overrides": []
       },
-      "interval": "1m",
       "options": {
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
           "mode": "multi",
@@ -621,40 +762,44 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (reason) (increase(notification_events_dead_lettered_total[65s]))",
-          "legendFormat": "{{reason}}",
+          "expr": "sum(increase(notification_events_dead_lettered_total[65s]))",
+          "legendFormat": "dead-lettered",
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1m",
+      "id": 13
     },
     {
       "type": "stat",
-      "title": "Event processing (99% SLO)",
-      "id": 14,
+      "title": "Event processing \u00b7 99% SLO",
+      "description": "SLI = (processed + duplicate) / (processed + duplicate + dead-lettered, excluding the simulated demo failures) over the selected time range. Retries are not final outcomes.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "SLI = (processed + duplicate) / (processed + duplicate + dead-lettered, excluding simulated) over the selected time range. Retries are not counted: only final outcomes.",
       "gridPos": {
-        "h": 8,
+        "h": 4,
         "w": 5,
-        "x": 14,
-        "y": 19
+        "x": 19,
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
           "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#d6453d",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#3f9b6a",
                 "value": 0.99
               }
             ]
@@ -665,10 +810,11 @@
         "overrides": []
       },
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
+        "wideLayout": true,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -687,36 +833,39 @@
           "refId": "A",
           "instant": true
         }
-      ]
+      ],
+      "id": 14
     },
     {
       "type": "stat",
       "title": "Dead-letter alert",
-      "id": 15,
+      "description": "Prometheus alert EventsDeadLettered: anything dead-lettered in the last 10 minutes.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "State of the Prometheus alert EventsDeadLettered (any dead-letter in the last 10 minutes).",
       "gridPos": {
-        "h": 8,
+        "h": 4,
         "w": 5,
         "x": 19,
-        "y": 19
+        "y": 22
       },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
           "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#3f9b6a",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#d6453d",
                 "value": 1
               }
             ]
@@ -752,6 +901,7 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
+        "wideLayout": true,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -770,7 +920,8 @@
           "refId": "A",
           "instant": true
         }
-      ]
+      ],
+      "id": 15
     }
   ],
   "templating": {

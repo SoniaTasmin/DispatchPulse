@@ -52,7 +52,7 @@ export function errorToText(error: unknown, requiredSkill: string): string {
   return status === 409 ? `${text}. Showing the latest data.` : text;
 }
 
-export function describeReason(
+function describeReason(
   reason: IneligibilityReason,
   requiredSkill: string,
 ): string {

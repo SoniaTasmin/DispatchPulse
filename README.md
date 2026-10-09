@@ -3,13 +3,14 @@
 A small field-service work-order platform demonstrating event-driven backend design,
 concurrency-safe technician assignment and operational observability.
 
-A dispatcher creates a work order ("Repair POS terminal, Networking, Dhaka"), sees which
-technicians are eligible and why the others are not, and assigns one. The technician starts
-and completes the job. Every state change is committed together with an integration event,
-which reaches a separate notification service through RabbitMQ — even if the broker or the
-consumer is down at the time.
+A dispatcher creates a work order, sees which technicians are eligible and why the others are
+not, and assigns one. Every state change is committed together with an event that reaches a
+separate notification service through RabbitMQ, even if the broker or the consumer is down at
+the time.
 
 ![Work order with technician matches: eligible technicians can be assigned, the others are listed with the reasons they are not eligible](docs/images/work-order-matching.png)
+
+*Technician matching keeps every candidate visible and explains why each one is or is not eligible.*
 
 ## What it demonstrates
 
@@ -34,7 +35,9 @@ Create → match technician → assign → start → complete.
 OPEN ──assign──► ASSIGNED ──start──► IN_PROGRESS ──complete──► COMPLETED
 ```
 
-![Completed work order with its lifecycle timeline](docs/images/work-order-completed.png)
+![Completed work order with its lifecycle progress](docs/images/work-order-completed.png)
+
+*Lifecycle transitions are enforced by the API: OPEN → ASSIGNED → IN_PROGRESS → COMPLETED.*
 
 The API enforces this lifecycle, not the UI: an illegal step (for example completing an OPEN
 work order) is rejected with HTTP 409 and changes nothing. A technician can be assigned only
@@ -44,17 +47,7 @@ never qualify).
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  ui["React UI"] -->|REST| api["Work Order API<br/>(NestJS)"]
-  api -->|"change + outbox row,<br/>one transaction"| db[("MySQL<br/>work orders")]
-  api -->|"outbox relay<br/>(publisher confirms)"| mq["RabbitMQ<br/>workorder.events"]
-  mq --> worker["Notification Worker<br/>(NestJS)"]
-  worker --> wdb[("MySQL<br/>notifications")]
-  prom["Prometheus"] -->|scrape /metrics| api
-  prom -->|scrape /metrics| worker
-  grafana["Grafana"] --> prom
-```
+![DispatchPulse application architecture: React UI calls the Work Order API over REST; the API writes the work order and its outbox event to MySQL in one transaction; the outbox relay publishes to RabbitMQ; the Notification Worker consumes the event and writes to its own MySQL database](docs/images/architecture.svg)
 
 Two services, deliberately: work orders and technicians stay together because assigning
 changes both in one transaction. The notification worker owns its own database and receives
@@ -75,14 +68,7 @@ crashes after RabbitMQ confirmed a publish but before marking the row). The work
 notification per event, and a `UNIQUE(event_id)` constraint turns a second delivery into a
 harmless "duplicate" instead of a second notification.
 
-```mermaid
-flowchart LR
-  q["worker queue"] --> p{"process"}
-  p -->|"ok or duplicate"| ack["ack"]
-  p -->|"transient error,<br/>attempts left"| retry["retry queue<br/>(5 s delay)"]
-  retry --> q
-  p -->|"last attempt failed,<br/>or invalid message"| dlq["dead-letter queue"]
-```
+![RabbitMQ retry and dead-letter flow: the worker acks on success, sends failures with attempts left to a retry queue that returns them to the worker queue after 5 s, and sends final failures to the dead-letter queue](docs/images/event-delivery.svg)
 
 Each event gets at most 3 processing attempts, with a delay between them instead of an
 immediate requeue loop. Messages that can never succeed (invalid JSON or envelope) skip the retries. Anything in
@@ -103,9 +89,15 @@ MySQL deadlock (from foreign-key locks), fixed by claiming the technician first 
 
 ![Grafana dashboard after the failure demos: outbox backlog during a RabbitMQ outage, retries, a dead-lettered event and the firing alert](docs/images/grafana-dashboard.png)
 
+*A simulated consumer failure produces retries, one dead-letter event and a firing alert, while
+the API stays available and a RabbitMQ outage's outbox backlog drains back to 0.*
+
+![DispatchPulse observability flow: Prometheus scrapes /metrics from the Work Order API and the Notification Worker; Grafana queries Prometheus](docs/images/observability.svg)
+
 One Grafana dashboard, provisioned from `infra/grafana`, shows:
 
-- **API:** request rate by route template, 5xx ratio, p95 latency
+- **API health:** availability SLO, p95 latency, request rate and 5xx ratio (HTTP metrics
+  are labelled by route template, never by concrete URL)
 - **Work orders:** lifecycle transitions, pending outbox events, publish failures
 - **Event worker:** processed and duplicate events, retries, dead-lettered events
 - **Two SLOs (99%, demo targets):**

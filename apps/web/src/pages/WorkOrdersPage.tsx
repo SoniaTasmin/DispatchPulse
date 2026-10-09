@@ -1,6 +1,10 @@
 import type { ChangeEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useListWorkOrdersQuery, WORK_ORDER_STATUSES } from '../api';
+import {
+  useListWorkOrdersQuery,
+  useSkillName,
+  WORK_ORDER_STATUSES,
+} from '../api';
 import { toApiError } from '../api-errors';
 import { CreateWorkOrderForm } from '../components/CreateWorkOrderForm';
 import { StatusBadge } from '../components/StatusBadge';
@@ -18,6 +22,7 @@ export function WorkOrdersPage() {
     error,
     refetch,
   } = useListWorkOrdersQuery(status);
+  const skillName = useSkillName();
 
   function handleStatusChange(event: ChangeEvent<HTMLSelectElement>) {
     const value = event.target.value;
@@ -28,7 +33,10 @@ export function WorkOrdersPage() {
     <div className="two-column">
       <section aria-labelledby="work-orders-heading">
         <div className="section-header">
-          <h1 id="work-orders-heading">Work orders</h1>
+          <h1 id="work-orders-heading">
+            Work orders
+            {workOrders && <span className="count">{workOrders.length}</span>}
+          </h1>
           <div className="inline-field">
             <label htmlFor="status-filter">Status</label>
             <select
@@ -63,7 +71,7 @@ export function WorkOrdersPage() {
           </p>
         ) : (
           <div className="table-wrap card">
-            <table aria-busy={isFetching}>
+            <table className="work-orders" aria-busy={isFetching}>
               <thead>
                 <tr>
                   <th scope="col">Work order</th>
@@ -77,19 +85,20 @@ export function WorkOrdersPage() {
                 {workOrders.map((workOrder) => (
                   <tr key={workOrder.id}>
                     <td>
-                      <Link to={`/work-orders/${workOrder.id}`}>
+                      <Link
+                        className="title-link"
+                        to={`/work-orders/${workOrder.id}`}
+                      >
                         {workOrder.title}
                       </Link>
-                      <span className="muted id"> #{workOrder.id}</span>
+                      <span className="id"> #{workOrder.id}</span>
                     </td>
                     <td>{workOrder.city}</td>
-                    <td>
-                      <code>{workOrder.requiredSkillCode}</code>
-                    </td>
+                    <td>{skillName(workOrder.requiredSkillCode)}</td>
                     <td>
                       <StatusBadge status={workOrder.status} />
                     </td>
-                    <td>
+                    <td className="muted">
                       <time dateTime={workOrder.createdAt}>
                         {formatDateTime(workOrder.createdAt)}
                       </time>

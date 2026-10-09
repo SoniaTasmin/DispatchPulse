@@ -1,0 +1,33 @@
+// Application and data flow. Render from this directory (see README.md here):
+//   dot -Tsvg architecture.dot -o ../images/architecture.svg
+digraph architecture {
+  // Straight horizontal edges use `label` (Graphviz reserves room and centres it above the
+  // line); vertical and bent edges use `xlabel`, which orthogonal routing supports.
+  graph [rankdir=LR, splines=ortho, outputorder=edgesfirst, bgcolor="#ffffff", pad="0.25",
+         ranksep="1.0", nodesep="0.4", forcelabels=true,
+         fontname="Helvetica,Arial,sans-serif"];
+  node  [shape=box, style=filled, fillcolor="#f6f8fa", color="#8c959f", penwidth=1,
+         fontname="Helvetica,Arial,sans-serif", fontsize=12, fontcolor="#1f2328",
+         width=1.9, height=0.62, margin="0.16,0.08"];
+  edge  [color="#57606a", penwidth=1.2, arrowsize=0.7, arrowhead=normal,
+         fontname="Helvetica,Arial,sans-serif", fontsize=10, fontcolor="#57606a"];
+
+  ui      [label="React UI"];
+  api     [label=<Work Order API<br/><font point-size="10" color="#57606a">NestJS</font>>];
+  db      [shape=cylinder, label=<MySQL<br/><font point-size="10" color="#57606a">work orders + outbox</font>>];
+  mq      [label="RabbitMQ"];
+  worker  [label=<Notification Worker<br/><font point-size="10" color="#57606a">NestJS</font>>];
+  notesdb [shape=cylinder, label=<MySQL<br/><font point-size="10" color="#57606a">notifications</font>>];
+
+  // Three columns so it reads at README width: the request path runs left to right along
+  // the top, drops through the outbox to RabbitMQ, and event delivery returns along the bottom.
+  { rank=same; ui; notesdb; }
+  { rank=same; api; worker; }
+  { rank=same; db; mq; }
+
+  ui  -> api    [label="REST\n "];
+  api -> db     [label="same transaction\n "];
+  db  -> mq     [xlabel="outbox relay   ", color="#1f4fd1", fontcolor="#1f4fd1"];
+  mq  -> worker [label="event\n ", color="#1f4fd1", fontcolor="#1f4fd1"];
+  worker -> notesdb;
+}

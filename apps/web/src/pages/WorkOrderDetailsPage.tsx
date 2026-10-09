@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router';
 import {
   useCompleteWorkOrderMutation,
   useGetWorkOrderQuery,
+  useSkillName,
   useStartWorkOrderMutation,
   type WorkOrder,
 } from '../api';
@@ -22,6 +23,7 @@ export function WorkOrderDetailsPage() {
     isFetching,
     error,
   } = useGetWorkOrderQuery(id, { skip: !isValidId });
+  const skillName = useSkillName();
 
   if (!isValidId || (error && toApiError(error).status === 404)) {
     return (
@@ -42,38 +44,48 @@ export function WorkOrderDetailsPage() {
     );
   }
 
+  const requiredSkill = skillName(workOrder.requiredSkillCode);
+
   return (
     <>
-      <BackLink />
-      <div className="page-title">
-        <h1>
-          {workOrder.title} <span className="muted id">#{workOrder.id}</span>
-        </h1>
-        <StatusBadge status={workOrder.status} />
-      </div>
+      <header className="page-header">
+        <BackLink />
+        <div className="page-title">
+          <h1>{workOrder.title}</h1>
+          <StatusBadge status={workOrder.status} />
+        </div>
+        <p className="page-meta">
+          <span className="id">#{workOrder.id}</span>
+          <span>{workOrder.city}</span>
+          <span>{requiredSkill}</span>
+        </p>
+      </header>
 
       <div className="two-column details">
         <section className="card" aria-labelledby="details-heading">
           <h2 id="details-heading">Details</h2>
           <dl className="details-list">
+            <dt>Technician</dt>
+            <dd className={workOrder.technician ? undefined : 'unset'}>
+              {workOrder.technician?.name ?? 'Not assigned'}
+            </dd>
             <dt>City</dt>
             <dd>{workOrder.city}</dd>
             <dt>Required skill</dt>
-            <dd>
-              <code>{workOrder.requiredSkillCode}</code>
-            </dd>
-            <dt>Technician</dt>
-            <dd>{workOrder.technician?.name ?? 'Not assigned'}</dd>
+            <dd>{requiredSkill}</dd>
             {workOrder.description && (
               <>
                 <dt>Description</dt>
-                <dd>{workOrder.description}</dd>
+                <dd className="prose">{workOrder.description}</dd>
               </>
             )}
           </dl>
         </section>
 
-        <section className="card" aria-labelledby="progress-heading">
+        <section
+          className="card progress-card"
+          aria-labelledby="progress-heading"
+        >
           <h2 id="progress-heading">Progress</h2>
           <Timeline workOrder={workOrder} />
           <NextAction workOrder={workOrder} />
@@ -89,39 +101,35 @@ export function WorkOrderDetailsPage() {
 
 function BackLink() {
   return (
-    <p>
-      <Link to="/">← All work orders</Link>
-    </p>
+    <Link className="back-link" to="/">
+      Back to work orders
+    </Link>
   );
 }
 
 function Timeline({ workOrder }: { workOrder: WorkOrder }) {
   const steps = [
     { status: 'OPEN', label: 'Created', at: workOrder.createdAt },
-    {
-      status: 'ASSIGNED',
-      label: workOrder.technician
-        ? `Assigned to ${workOrder.technician.name}`
-        : 'Assigned',
-      at: workOrder.assignedAt,
-    },
-    { status: 'IN_PROGRESS', label: 'Work started', at: workOrder.startedAt },
+    { status: 'ASSIGNED', label: 'Assigned', at: workOrder.assignedAt },
+    { status: 'IN_PROGRESS', label: 'In progress', at: workOrder.startedAt },
     { status: 'COMPLETED', label: 'Completed', at: workOrder.completedAt },
   ] as const;
 
   return (
-    <ol className="timeline">
+    <ol className="stepper">
       {steps.map((step) => (
         <li
           key={step.status}
           className={step.at ? 'done' : 'pending'}
           aria-current={step.status === workOrder.status ? 'step' : undefined}
         >
-          <span className="timeline-label">{step.label}</span>
+          <span className="step-label">{step.label}</span>
           {step.at ? (
-            <time dateTime={step.at}>{formatDateTime(step.at)}</time>
+            <time className="step-time" dateTime={step.at}>
+              {formatDateTime(step.at)}
+            </time>
           ) : (
-            <span className="muted">Not yet</span>
+            <span className="step-time">Not yet</span>
           )}
         </li>
       ))}
@@ -151,44 +159,48 @@ function NextAction({ workOrder }: { workOrder: WorkOrder }) {
   switch (workOrder.status) {
     case 'OPEN':
       return (
-        <p className="next-action">
-          Next: assign an eligible technician from the matches below.
-        </p>
+        <div className="next-action">
+          <p>Next: assign an eligible technician from the matches below.</p>
+        </div>
       );
     case 'ASSIGNED':
       return (
-        <button
-          type="button"
-          className="button-primary"
-          disabled={isStarting}
-          onClick={() =>
-            void run(() => start(workOrder.id).unwrap(), 'Work started.')
-          }
-        >
-          {isStarting ? 'Starting…' : 'Start work'}
-        </button>
+        <div className="next-action">
+          <button
+            type="button"
+            className="button-primary"
+            disabled={isStarting}
+            onClick={() =>
+              void run(() => start(workOrder.id).unwrap(), 'Work started.')
+            }
+          >
+            {isStarting ? 'Starting…' : 'Start work'}
+          </button>
+        </div>
       );
     case 'IN_PROGRESS':
       return (
-        <button
-          type="button"
-          className="button-primary"
-          disabled={isCompleting}
-          onClick={() =>
-            void run(
-              () => complete(workOrder.id).unwrap(),
-              'Work order completed.',
-            )
-          }
-        >
-          {isCompleting ? 'Completing…' : 'Complete work'}
-        </button>
+        <div className="next-action">
+          <button
+            type="button"
+            className="button-primary"
+            disabled={isCompleting}
+            onClick={() =>
+              void run(
+                () => complete(workOrder.id).unwrap(),
+                'Work order completed.',
+              )
+            }
+          >
+            {isCompleting ? 'Completing…' : 'Complete work'}
+          </button>
+        </div>
       );
     case 'COMPLETED':
       return (
-        <p className="next-action">
-          This work order is complete. No further actions.
-        </p>
+        <div className="next-action">
+          <p>This work order is complete. No further actions.</p>
+        </div>
       );
   }
 }

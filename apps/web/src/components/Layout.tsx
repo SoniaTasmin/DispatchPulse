@@ -12,7 +12,7 @@ export function Layout() {
           <Link to="/" className="brand">
             DispatchPulse
           </Link>
-          <span className="tagline">Field-service work orders</span>
+          <span className="tagline">Field service dispatch</span>
         </div>
       </header>
       <main id="main" className="container">

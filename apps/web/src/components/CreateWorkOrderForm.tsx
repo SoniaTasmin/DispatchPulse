@@ -133,7 +133,7 @@ export function CreateWorkOrderForm() {
           </option>
           {skills.data?.map((skill) => (
             <option key={skill.code} value={skill.code}>
-              {skill.name} ({skill.code})
+              {skill.name}
             </option>
           ))}
         </select>

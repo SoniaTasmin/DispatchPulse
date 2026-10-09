@@ -1,10 +1,13 @@
+import { Fragment } from 'react';
 import {
   useAssignWorkOrderMutation,
   useGetTechnicianMatchesQuery,
+  useSkillName,
+  type IneligibilityReason,
   type TechnicianMatch,
   type WorkOrder,
 } from '../api';
-import { describeReason, errorToText, toApiError } from '../api-errors';
+import { errorToText, toApiError } from '../api-errors';
 import { TECHNICIAN_STATUS_LABELS } from '../format';
 import { useAppDispatch } from '../store';
 import { toastShown } from '../toasts';
@@ -20,6 +23,16 @@ export function TechnicianMatches({ workOrder }: { workOrder: WorkOrder }) {
   } = useGetTechnicianMatchesQuery(workOrder.id);
   const [assign, { isLoading: isAssigning, originalArgs }] =
     useAssignWorkOrderMutation();
+  const skillName = useSkillName();
+  const requiredSkill = skillName(workOrder.requiredSkillCode);
+
+  // Short labels for the reason chips; the toast keeps the longer wording.
+  const reasonLabel = (reason: IneligibilityReason) =>
+    reason === 'MISSING_SKILL'
+      ? `Missing ${requiredSkill}`
+      : reason === 'NOT_AVAILABLE'
+        ? 'Not available'
+        : 'Different city';
 
   async function handleAssign({ technician }: TechnicianMatch) {
     try {
@@ -39,12 +52,20 @@ export function TechnicianMatches({ workOrder }: { workOrder: WorkOrder }) {
 
   return (
     <section className="card" aria-labelledby="matches-heading">
-      <h2 id="matches-heading">Technician matches</h2>
-      <p className="muted">
-        Needs <code>{workOrder.requiredSkillCode}</code> in {workOrder.city}.
-        {matches &&
-          ` ${eligibleCount} of ${matches.length} technicians are eligible.`}
-      </p>
+      <div className="matches-header">
+        <h2 id="matches-heading">Technician matches</h2>
+        <p className="matches-summary">
+          {matches && (
+            <>
+              <strong>
+                {eligibleCount} of {matches.length}
+              </strong>{' '}
+              eligible ·{' '}
+            </>
+          )}
+          needs {requiredSkill} in {workOrder.city}
+        </p>
+      </div>
 
       {!matches && isFetching ? (
         <p className="muted">Loading technicians…</p>
@@ -59,10 +80,9 @@ export function TechnicianMatches({ workOrder }: { workOrder: WorkOrder }) {
               <tr>
                 <th scope="col">Technician</th>
                 <th scope="col">City</th>
-                <th scope="col">Availability</th>
                 <th scope="col">Skills</th>
                 <th scope="col">Eligibility</th>
-                <th scope="col">
+                <th scope="col" className="action-col">
                   <span className="visually-hidden">Action</span>
                 </th>
               </tr>
@@ -75,36 +95,54 @@ export function TechnicianMatches({ workOrder }: { workOrder: WorkOrder }) {
                 return (
                   <tr
                     key={technician.id}
-                    className={eligible ? undefined : 'ineligible'}
+                    className={eligible ? 'eligible' : 'ineligible'}
                   >
-                    <th scope="row">{technician.name}</th>
+                    <th scope="row">
+                      <span className="tech-name">{technician.name}</span>
+                      <span
+                        className={`availability ${technician.status.toLowerCase()}`}
+                      >
+                        {TECHNICIAN_STATUS_LABELS[technician.status]}
+                      </span>
+                    </th>
                     <td>{technician.city}</td>
-                    <td>{TECHNICIAN_STATUS_LABELS[technician.status]}</td>
-                    <td>{technician.skills.join(', ')}</td>
+                    <td className="skills">
+                      {technician.skills.map((code, index) => (
+                        <Fragment key={code}>
+                          {index > 0 && ', '}
+                          <span
+                            className={
+                              code === workOrder.requiredSkillCode
+                                ? 'required'
+                                : undefined
+                            }
+                          >
+                            {skillName(code)}
+                          </span>
+                        </Fragment>
+                      ))}
+                    </td>
                     <td>
                       {eligible ? (
-                        <span className="eligibility eligible">Eligible</span>
+                        <span className="chip chip-eligible">Eligible</span>
                       ) : (
                         <>
-                          <span className="eligibility">Not eligible</span>
-                          <ul className="reasons">
+                          <span className="visually-hidden">Not eligible:</span>
+                          <ul className="chips">
                             {reasons.map((reason) => (
-                              <li key={reason}>
-                                {describeReason(
-                                  reason,
-                                  workOrder.requiredSkillCode,
-                                )}
+                              <li key={reason} className="chip">
+                                {reasonLabel(reason)}
                               </li>
                             ))}
                           </ul>
                         </>
                       )}
                     </td>
-                    <td>
+                    <td className="action-col">
                       {eligible && (
                         <button
                           type="button"
-                          className="button-primary"
+                          className="button-primary button-sm"
                           aria-label={`Assign ${technician.name}`}
                           disabled={isAssigning}
                           onClick={() => void handleAssign(match)}
